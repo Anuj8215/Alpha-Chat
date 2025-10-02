@@ -34,3 +34,6 @@ yarn-error.log*
 coverage/
 package-lock.json
 package.json
+startup-debug.log*
+start-server.bat
+start-server.ps1
