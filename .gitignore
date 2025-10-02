@@ -1,0 +1,36 @@
+readme/
+PROJECT_PLAN.md
+TECHNICAL_CHECKLIST.md
+RESOURCE_TIMELINE.md
+TEAM_TASKS.md
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+package-lock.json
+package.json
