@@ -1,17 +1,26 @@
-const User = require('../models/User');
+//!SECTION - AUTHENTICATION SERVICE
+
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const User = require('../models/users');
 const logger = require('../utils/logger');
-const { googleClient } = require('../config/google');
-const { generateToken } = require('../utils/jwt');
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 //NOTE - REGISTERING NEW USER WITH EMAIL AND PASSWORD
 
-const registerUser = async (email, password) => {
+const registerUser = async (userData) => {
     try {
+        const { firstName, lastName, email, password } = userData;
+
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             throw new Error('User already exists');
         }
         const newUser = new User({
+            firstName,
+            lastName,
             email,
             password,
             authProvider: 'local',
@@ -28,15 +37,17 @@ const registerUser = async (email, password) => {
 };
 
 //NOTE - LOGIN USER WITH EMAIL AND PASSWORD
-const loginUser = async (email, password) => {
+const loginUser = async (loginData) => {
     try {
+        const { email, password } = loginData;
+
         const user = await User.findOne({ email });
         if (!user) {
-            throw new Error('User not found');
+            throw new Error('Invalid email or password');
         }
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            throw new Error('Invalid credentials');
+            throw new Error('Invalid email or password');
         }
         user.lastLogin = new Date();
         await user.save();

@@ -4,8 +4,8 @@ require('dotenv').config();
 const http = require('http');
 const socketIO = require('socket.io');
 const connectDb = require('./config/database');
-const logger = require('./src/utils/logger');
-const app = require('./app');
+const logger = require('./utils/logger');
+const app = require('./config/app');
 
 const PORT = process.env.PORT;
 

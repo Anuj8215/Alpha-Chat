@@ -5,6 +5,9 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
 
+// Import routes
+const authRoutes = require('../routes/auth');
+
 const app = express();
 
 app.use(helmet());
@@ -30,10 +33,22 @@ const apiLimiter = rateLimit({
 })
 app.use('/api/', apiLimiter);
 
+//NOTE - API ROUTES
+app.use('/api/auth', authRoutes);
+
 //NOTE - BASIC ROUTE FOR HEALTH CHECK
 
-app.use('/health', (req, res) => {
+app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Health check successful' });
+});
+
+// 404 Not Found handler
+app.use((req, res, next) => {
+    res.status(404).json({
+        error: {
+            message: 'Resource not found'
+        }
+    });
 });
 
 app.use((err, req, res, next) => {
