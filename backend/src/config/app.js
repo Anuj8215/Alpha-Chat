@@ -5,8 +5,10 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
 
+
 // Import routes
 const authRoutes = require('../routes/auth');
+const chatRoutes = require('../routes/chat');
 
 const app = express();
 
@@ -35,6 +37,7 @@ app.use('/api/', apiLimiter);
 
 //NOTE - API ROUTES
 app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
 
 //NOTE - BASIC ROUTE FOR HEALTH CHECK
 

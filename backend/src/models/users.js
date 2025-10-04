@@ -15,7 +15,27 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     lastLogin: Date,
     createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
+    updatedAt: { type: Date, default: Date.now },
+    activeChats: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Chat'
+    }],
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    preferences: {
+        theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+        notifications: { type: Boolean, default: true },
+        onlineStatus: { type: String, enum: ['online', 'offline', 'away'], default: 'offline' },
+        lastSeen: { type: Date, default: Date.now }
+    },
+    subscription: {
+        type: { type: String, enum: ['free', 'premium'], default: 'free' },
+        expiresAt: Date,
+        features: {
+            aiMessageLimit: { type: Number, default: 10 }, // per day for free users
+            mediaUploadLimit: { type: Number, default: 5 }, // MB for free users
+            groupChatLimit: { type: Number, default: 3 } // for free users
+        }
+    }
 }, {
     timestamps: true
 });
