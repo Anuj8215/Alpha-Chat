@@ -1,4 +1,4 @@
-//!SECTION - AI ROUTES FOR CHATGPT CLONE
+//!SECTION - AI ROUTES FOR ALPHA-CHAT
 
 const express = require('express');
 const aiService = require('../services/ai');
@@ -7,15 +7,22 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
-//NOTE - CREATE NEW CONVERSATION (POST /api/ai/conversation/new, PRIVATE)
+//NOTE - CREATE NEW CONVERSATION
 
 router.post('/conversation/new', authenticate, async (req, res) => {
     try {
-        const { title } = req.body;
+        const { aiMode, title } = req.body;
+
+        if (!aiMode || !['chat', 'code', 'image', 'video'].includes(aiMode)) {
+            return res.status(400).json({
+                error: { message: 'Valid AI mode is required (chat, code, image, video)' }
+            });
+        }
 
         const conversation = await aiService.createConversation(
             req.user._id,
-            title || 'New Chat'
+            aiMode,
+            title
         );
 
         res.status(201).json({
@@ -31,16 +38,14 @@ router.post('/conversation/new', authenticate, async (req, res) => {
     }
 });
 
-//NOTE - GET USER'S CONVERSATIONS (GET /api/ai/conversations, PRIVATE)
-
+//NOTE - GET USER'S CONVERSATIONS WITH FILTERS (GET /api/ai/conversations, PRIVATE)
 router.get('/conversations', authenticate, async (req, res) => {
     try {
-        const { page = 1, limit = 20 } = req.query;
+        const { aiMode, page = 1, limit = 20, search } = req.query;
 
         const conversations = await aiService.getUserConversations(
             req.user._id,
-            parseInt(page),
-            parseInt(limit)
+            { aiMode, page: parseInt(page), limit: parseInt(limit), search }
         );
 
         res.status(200).json({
@@ -60,8 +65,7 @@ router.get('/conversations', authenticate, async (req, res) => {
     }
 });
 
-//NOTE - SEND MESSAGE TO AI (POST /api/ai/chat, PRIVATE)
-
+//NOTE - SEND CHAT MESSAGE
 router.post('/chat', authenticate, async (req, res) => {
     try {
         const { conversationId, message, model = 'gpt-3.5-turbo' } = req.body;
@@ -72,22 +76,21 @@ router.post('/chat', authenticate, async (req, res) => {
             });
         }
 
-        // Get Socket.IO instance for real-time updates
         const io = req.app.get('io');
 
         // Emit typing indicator
         io.to(`user-${req.user._id}`).emit('ai-typing', {
             conversationId,
-            isTyping: true
+            isTyping: true,
+            mode: 'chat'
         });
 
-        let result;
-
-        if (model === 'gemini-pro') {
-            result = await aiService.getGeminiResponse(req.user._id, conversationId, message);
-        } else {
-            result = await aiService.getChatResponse(req.user._id, conversationId, message, model);
-        }
+        const result = await aiService.getChatResponse(
+            req.user._id,
+            conversationId,
+            message,
+            model
+        );
 
         // Stop typing indicator
         io.to(`user-${req.user._id}`).emit('ai-typing', {
@@ -95,18 +98,20 @@ router.post('/chat', authenticate, async (req, res) => {
             isTyping: false
         });
 
-        // Emit the AI response in real-time
-        io.to(`user-${req.user._id}`).emit('ai-response', result);
+        // Emit the response
+        io.to(`user-${req.user._id}`).emit('ai-response', {
+            type: 'chat',
+            data: result
+        });
 
         res.status(200).json({
-            message: 'AI response generated successfully',
+            message: 'Chat response generated successfully',
             data: result
         });
 
     } catch (error) {
-        logger.error(`AI chat route error: ${error.message}`);
+        logger.error(`Chat route error: ${error.message}`);
 
-        // Stop typing indicator on error
         const io = req.app.get('io');
         io.to(`user-${req.user._id}`).emit('ai-typing', {
             conversationId: req.body.conversationId,
@@ -120,16 +125,71 @@ router.post('/chat', authenticate, async (req, res) => {
         }
 
         res.status(500).json({
-            error: { message: 'Failed to get AI response' }
+            error: { message: 'Failed to get chat response' }
         });
     }
 });
 
-//NOTE - GENERATE IMAGE (POST /api/ai/generate-image, PRIVATE)
+//NOTE - SEND CODE MESSAGE 
+router.post('/code', authenticate, async (req, res) => {
+    try {
+        const { conversationId, message, codeLanguage = 'javascript' } = req.body;
 
+        if (!conversationId || !message) {
+            return res.status(400).json({
+                error: { message: 'Conversation ID and message are required' }
+            });
+        }
+
+        const io = req.app.get('io');
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: true,
+            mode: 'code'
+        });
+
+        const result = await aiService.getCodeResponse(
+            req.user._id,
+            conversationId,
+            message,
+            codeLanguage
+        );
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: false
+        });
+
+        io.to(`user-${req.user._id}`).emit('ai-response', {
+            type: 'code',
+            data: result
+        });
+
+        res.status(200).json({
+            message: 'Code response generated successfully',
+            data: result
+        });
+
+    } catch (error) {
+        logger.error(`Code route error: ${error.message}`);
+
+        if (error.message.includes('limit reached')) {
+            return res.status(429).json({
+                error: { message: error.message }
+            });
+        }
+
+        res.status(500).json({
+            error: { message: 'Failed to get code response' }
+        });
+    }
+});
+
+//NOTE - GENERATE IMAGE 
 router.post('/generate-image', authenticate, async (req, res) => {
     try {
-        const { conversationId, prompt } = req.body;
+        const { conversationId, prompt, model = 'dall-e-3' } = req.body;
 
         if (!conversationId || !prompt) {
             return res.status(400).json({
@@ -137,19 +197,22 @@ router.post('/generate-image', authenticate, async (req, res) => {
             });
         }
 
-        // Get Socket.IO instance for real-time updates
         const io = req.app.get('io');
 
-        // Emit generation status
         io.to(`user-${req.user._id}`).emit('media-generation-status', {
             conversationId,
             status: 'processing',
-            message: 'Generating image...'
+            message: 'Generating image...',
+            type: 'image'
         });
 
-        const result = await aiService.generateImage(req.user._id, conversationId, prompt);
+        const result = await aiService.generateImage(
+            req.user._id,
+            conversationId,
+            prompt,
+            model
+        );
 
-        // Emit completion
         io.to(`user-${req.user._id}`).emit('media-generated', {
             type: 'image',
             data: result
@@ -163,15 +226,111 @@ router.post('/generate-image', authenticate, async (req, res) => {
     } catch (error) {
         logger.error(`Image generation route error: ${error.message}`);
 
-        // Emit error status
         const io = req.app.get('io');
         io.to(`user-${req.user._id}`).emit('media-generation-error', {
             conversationId: req.body.conversationId,
-            error: 'Failed to generate image'
+            error: 'Failed to generate image',
+            type: 'image'
         });
+
+        if (error.message.includes('limit reached')) {
+            return res.status(429).json({
+                error: { message: error.message }
+            });
+        }
 
         res.status(500).json({
             error: { message: 'Failed to generate image' }
+        });
+    }
+});
+
+//NOTE - GENERATE VIDEO 
+router.post('/generate-video', authenticate, async (req, res) => {
+    try {
+        const { conversationId, prompt } = req.body;
+
+        if (!conversationId || !prompt) {
+            return res.status(400).json({
+                error: { message: 'Conversation ID and prompt are required' }
+            });
+        }
+
+        const result = await aiService.generateVideo(
+            req.user._id,
+            conversationId,
+            prompt
+        );
+
+        res.status(200).json({
+            message: 'Video generation initiated',
+            data: result
+        });
+
+    } catch (error) {
+        logger.error(`Video generation route error: ${error.message}`);
+
+        if (error.message.includes('not yet implemented')) {
+            return res.status(501).json({
+                error: { message: error.message }
+            });
+        }
+
+        res.status(500).json({
+            error: { message: 'Failed to generate video' }
+        });
+    }
+});
+
+//NOTE - DELETE CONVERSATION
+router.delete('/conversation/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        await aiService.deleteConversation(req.user._id, id);
+
+        res.status(200).json({
+            message: 'Conversation deleted successfully'
+        });
+
+    } catch (error) {
+        logger.error(`Delete conversation route error: ${error.message}`);
+
+        if (error.message.includes('not found') || error.message.includes('access denied')) {
+            return res.status(404).json({
+                error: { message: error.message }
+            });
+        }
+
+        res.status(500).json({
+            error: { message: 'Failed to delete conversation' }
+        });
+    }
+});
+
+//NOTE - PIN/UNPIN CONVERSATION 
+router.put('/conversation/:id/pin', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await aiService.togglePinConversation(req.user._id, id);
+
+        res.status(200).json({
+            message: `Conversation ${result.isPinned ? 'pinned' : 'unpinned'} successfully`,
+            isPinned: result.isPinned
+        });
+
+    } catch (error) {
+        logger.error(`Pin conversation route error: ${error.message}`);
+
+        if (error.message.includes('not found') || error.message.includes('access denied')) {
+            return res.status(404).json({
+                error: { message: error.message }
+            });
+        }
+
+        res.status(500).json({
+            error: { message: 'Failed to pin conversation' }
         });
     }
 });
