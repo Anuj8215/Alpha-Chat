@@ -10,6 +10,7 @@ const logger = require('../utils/logger');
 const authRoutes = require('../routes/auth');
 const chatRoutes = require('../routes/chat');
 const aiRoutes = require('../routes/ai');
+const profileRoutes = require('../routes/profile');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/profile', profileRoutes);
 
 //NOTE - BASIC ROUTE FOR HEALTH CHECK
 
