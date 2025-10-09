@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
-//NOTE - INITIALIZE SOCKET.IO FOR REAL-TIME CHATGPT-LIKE EXPERIENCE
+//NOTE - INITIALIZE SOCKET.IO FO    R REAL-TIME CHATGPT-LIKE EXPERIENCE
 const io = socketIO(server, {
     cors: {
         origin: process.env.CLIENT_URL || '*',

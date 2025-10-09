@@ -247,8 +247,7 @@ const generateVideo = async (userId, conversationId, prompt) => {
     try {
         await checkUserLimits(userId, 'video');
 
-        // Placeholder for Gemini video generation
-        // This will be implemented when Gemini video API is available
+
         throw new Error('Video generation not yet implemented. Coming soon with Gemini API updates.');
 
     } catch (error) {
