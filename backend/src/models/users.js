@@ -48,7 +48,9 @@ const userSchema = new mongoose.Schema({
         language: { type: String, default: 'en' },
         notifications: { type: Boolean, default: true }
     },
-    lastLogin: Date, isActive: { type: Boolean, default: true }
+    lastLogin: Date, isActive: { type: Boolean, default: true },
+    passwordResetToken: String,
+    passwordResetExpires: Date
 }, {
     timestamps: true
 });

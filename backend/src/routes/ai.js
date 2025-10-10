@@ -1,4 +1,4 @@
-//!SECTION - AI ROUTES FOR ALPHA-CHAT
+//!SECTION - ENHANCED AI ROUTES
 
 const express = require('express');
 const aiService = require('../services/ai');
@@ -7,15 +7,15 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
-//NOTE - CREATE NEW CONVERSATION
-
+//NOTE - CREATE NEW CONVERSATION (POST /api/ai/conversation/new, PRIVATE)
 router.post('/conversation/new', authenticate, async (req, res) => {
     try {
         const { aiMode, title } = req.body;
 
-        if (!aiMode || !['chat', 'code', 'image', 'video'].includes(aiMode)) {
+        const validModes = ['chat', 'code', 'image', 'video', 'research', 'document'];
+        if (!aiMode || !validModes.includes(aiMode)) {
             return res.status(400).json({
-                error: { message: 'Valid AI mode is required (chat, code, image, video)' }
+                error: { message: `Valid AI mode is required. Options: ${validModes.join(', ')}` }
             });
         }
 
@@ -38,34 +38,7 @@ router.post('/conversation/new', authenticate, async (req, res) => {
     }
 });
 
-//NOTE - GET USER'S CONVERSATIONS WITH FILTERS (GET /api/ai/conversations, PRIVATE)
-router.get('/conversations', authenticate, async (req, res) => {
-    try {
-        const { aiMode, page = 1, limit = 20, search } = req.query;
-
-        const conversations = await aiService.getUserConversations(
-            req.user._id,
-            { aiMode, page: parseInt(page), limit: parseInt(limit), search }
-        );
-
-        res.status(200).json({
-            message: 'Conversations retrieved successfully',
-            conversations,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit)
-            }
-        });
-
-    } catch (error) {
-        logger.error(`Get conversations route error: ${error.message}`);
-        res.status(500).json({
-            error: { message: 'Failed to retrieve conversations' }
-        });
-    }
-});
-
-//NOTE - SEND CHAT MESSAGE
+//NOTE - CHAT MODE (POST /api/ai/chat, PRIVATE)
 router.post('/chat', authenticate, async (req, res) => {
     try {
         const { conversationId, message, model = 'gpt-3.5-turbo' } = req.body;
@@ -78,7 +51,6 @@ router.post('/chat', authenticate, async (req, res) => {
 
         const io = req.app.get('io');
 
-        // Emit typing indicator
         io.to(`user-${req.user._id}`).emit('ai-typing', {
             conversationId,
             isTyping: true,
@@ -92,13 +64,11 @@ router.post('/chat', authenticate, async (req, res) => {
             model
         );
 
-        // Stop typing indicator
         io.to(`user-${req.user._id}`).emit('ai-typing', {
             conversationId,
             isTyping: false
         });
 
-        // Emit the response
         io.to(`user-${req.user._id}`).emit('ai-response', {
             type: 'chat',
             data: result
@@ -112,25 +82,15 @@ router.post('/chat', authenticate, async (req, res) => {
     } catch (error) {
         logger.error(`Chat route error: ${error.message}`);
 
-        const io = req.app.get('io');
-        io.to(`user-${req.user._id}`).emit('ai-typing', {
-            conversationId: req.body.conversationId,
-            isTyping: false
-        });
-
         if (error.message.includes('limit reached')) {
-            return res.status(429).json({
-                error: { message: error.message }
-            });
+            return res.status(429).json({ error: { message: error.message } });
         }
 
-        res.status(500).json({
-            error: { message: 'Failed to get chat response' }
-        });
+        res.status(500).json({ error: { message: 'Failed to get chat response' } });
     }
 });
 
-//NOTE - SEND CODE MESSAGE 
+//NOTE - CODE MODE (POST /api/ai/code, PRIVATE)
 router.post('/code', authenticate, async (req, res) => {
     try {
         const { conversationId, message, codeLanguage = 'javascript' } = req.body;
@@ -175,21 +135,120 @@ router.post('/code', authenticate, async (req, res) => {
         logger.error(`Code route error: ${error.message}`);
 
         if (error.message.includes('limit reached')) {
-            return res.status(429).json({
-                error: { message: error.message }
-            });
+            return res.status(429).json({ error: { message: error.message } });
         }
 
-        res.status(500).json({
-            error: { message: 'Failed to get code response' }
-        });
+        res.status(500).json({ error: { message: 'Failed to get code response' } });
     }
 });
 
-//NOTE - GENERATE IMAGE 
+//NOTE - RESEARCH MODE (POST /api/ai/research, PRIVATE)
+router.post('/research', authenticate, async (req, res) => {
+    try {
+        const { conversationId, query } = req.body;
+
+        if (!conversationId || !query) {
+            return res.status(400).json({
+                error: { message: 'Conversation ID and research query are required' }
+            });
+        }
+
+        const io = req.app.get('io');
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: true,
+            mode: 'research'
+        });
+
+        const result = await aiService.getResearchResponse(
+            req.user._id,
+            conversationId,
+            query
+        );
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: false
+        });
+
+        io.to(`user-${req.user._id}`).emit('ai-response', {
+            type: 'research',
+            data: result
+        });
+
+        res.status(200).json({
+            message: 'Research response generated successfully',
+            data: result
+        });
+
+    } catch (error) {
+        logger.error(`Research route error: ${error.message}`);
+
+        if (error.message.includes('limit reached')) {
+            return res.status(429).json({ error: { message: error.message } });
+        }
+
+        res.status(500).json({ error: { message: 'Failed to get research response' } });
+    }
+});
+
+//NOTE - DOCUMENT MODE (POST /api/ai/document, PRIVATE)
+router.post('/document', authenticate, async (req, res) => {
+    try {
+        const { conversationId, prompt, documentType = 'general' } = req.body;
+
+        if (!conversationId || !prompt) {
+            return res.status(400).json({
+                error: { message: 'Conversation ID and document prompt are required' }
+            });
+        }
+
+        const io = req.app.get('io');
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: true,
+            mode: 'document'
+        });
+
+        const result = await aiService.getDocumentResponse(
+            req.user._id,
+            conversationId,
+            prompt,
+            documentType
+        );
+
+        io.to(`user-${req.user._id}`).emit('ai-typing', {
+            conversationId,
+            isTyping: false
+        });
+
+        io.to(`user-${req.user._id}`).emit('ai-response', {
+            type: 'document',
+            data: result
+        });
+
+        res.status(200).json({
+            message: 'Document response generated successfully',
+            data: result
+        });
+
+    } catch (error) {
+        logger.error(`Document route error: ${error.message}`);
+
+        if (error.message.includes('limit reached')) {
+            return res.status(429).json({ error: { message: error.message } });
+        }
+
+        res.status(500).json({ error: { message: 'Failed to generate document response' } });
+    }
+});
+
+//NOTE - IMAGE GENERATION (POST /api/ai/generate-image, PRIVATE)
 router.post('/generate-image', authenticate, async (req, res) => {
     try {
-        const { conversationId, prompt, model = 'dall-e-3' } = req.body;
+        const { conversationId, prompt } = req.body;
 
         if (!conversationId || !prompt) {
             return res.status(400).json({
@@ -209,8 +268,7 @@ router.post('/generate-image', authenticate, async (req, res) => {
         const result = await aiService.generateImage(
             req.user._id,
             conversationId,
-            prompt,
-            model
+            prompt
         );
 
         io.to(`user-${req.user._id}`).emit('media-generated', {
@@ -234,67 +292,59 @@ router.post('/generate-image', authenticate, async (req, res) => {
         });
 
         if (error.message.includes('limit reached')) {
-            return res.status(429).json({
-                error: { message: error.message }
-            });
+            return res.status(429).json({ error: { message: error.message } });
         }
 
-        res.status(500).json({
-            error: { message: 'Failed to generate image' }
-        });
+        res.status(500).json({ error: { message: 'Failed to generate image' } });
     }
 });
 
-//NOTE - GENERATE VIDEO 
-router.post('/generate-video', authenticate, async (req, res) => {
+//NOTE - GET IMAGE LIBRARY (GET /api/ai/library, PRIVATE)
+router.get('/library', authenticate, async (req, res) => {
     try {
-        const { conversationId, prompt } = req.body;
+        const { page = 1, limit = 20 } = req.query;
 
-        if (!conversationId || !prompt) {
-            return res.status(400).json({
-                error: { message: 'Conversation ID and prompt are required' }
-            });
-        }
-
-        const result = await aiService.generateVideo(
+        const images = await aiService.getUserImageLibrary(
             req.user._id,
-            conversationId,
-            prompt
+            parseInt(page),
+            parseInt(limit)
         );
 
         res.status(200).json({
-            message: 'Video generation initiated',
+            message: 'Image library retrieved successfully',
+            images,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit)
+            }
+        });
+
+    } catch (error) {
+        logger.error(`Get image library route error: ${error.message}`);
+        res.status(500).json({ error: { message: 'Failed to retrieve image library' } });
+    }
+});
+
+//NOTE - DELETE IMAGE FROM LIBRARY (DELETE /api/ai/library/:id, PRIVATE)
+router.delete('/library/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!id) {
+            return res.status(400).json({
+                error: { message: 'Image ID is required' }
+            });
+        }
+
+        const result = await aiService.deleteImageFromLibrary(req.user._id, id);
+
+        res.status(200).json({
+            message: 'Image deleted from library successfully',
             data: result
         });
 
     } catch (error) {
-        logger.error(`Video generation route error: ${error.message}`);
-
-        if (error.message.includes('not yet implemented')) {
-            return res.status(501).json({
-                error: { message: error.message }
-            });
-        }
-
-        res.status(500).json({
-            error: { message: 'Failed to generate video' }
-        });
-    }
-});
-
-//NOTE - DELETE CONVERSATION
-router.delete('/conversation/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        await aiService.deleteConversation(req.user._id, id);
-
-        res.status(200).json({
-            message: 'Conversation deleted successfully'
-        });
-
-    } catch (error) {
-        logger.error(`Delete conversation route error: ${error.message}`);
+        logger.error(`Delete image from library route error: ${error.message}`);
 
         if (error.message.includes('not found') || error.message.includes('access denied')) {
             return res.status(404).json({
@@ -303,34 +353,7 @@ router.delete('/conversation/:id', authenticate, async (req, res) => {
         }
 
         res.status(500).json({
-            error: { message: 'Failed to delete conversation' }
-        });
-    }
-});
-
-//NOTE - PIN/UNPIN CONVERSATION 
-router.put('/conversation/:id/pin', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const result = await aiService.togglePinConversation(req.user._id, id);
-
-        res.status(200).json({
-            message: `Conversation ${result.isPinned ? 'pinned' : 'unpinned'} successfully`,
-            isPinned: result.isPinned
-        });
-
-    } catch (error) {
-        logger.error(`Pin conversation route error: ${error.message}`);
-
-        if (error.message.includes('not found') || error.message.includes('access denied')) {
-            return res.status(404).json({
-                error: { message: error.message }
-            });
-        }
-
-        res.status(500).json({
-            error: { message: 'Failed to pin conversation' }
+            error: { message: 'Failed to delete image from library' }
         });
     }
 });

@@ -16,7 +16,7 @@ const conversationSchema = new mongoose.Schema({
     },
     aiMode: {
         type: String,
-        enum: ['chat', 'code', 'image', 'video'],
+        enum: ['chat', 'code', 'image', 'video', 'research', 'document'],
         default: 'chat'
     },
     messages: [{
@@ -35,12 +35,12 @@ const conversationSchema = new mongoose.Schema({
         },
         messageType: {
             type: String,
-            enum: ['text', 'code', 'image', 'video', 'file'],
+            enum: ['text', 'code', 'image', 'video', 'file', 'research', 'document'],
             default: 'text'
         },
         aiModel: {
             type: String,
-            enum: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gemini-pro', 'gemini-pro-vision'],
+            enum: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gemini-pro', 'gemini-pro-vision', 'deepseek-coder', 'deepseek-chat', 'dall-e-3', 'combined-research'],
             default: 'gpt-3.5-turbo'
         },
         attachments: [{
@@ -60,7 +60,7 @@ const conversationSchema = new mongoose.Schema({
     settings: {
         model: {
             type: String,
-            enum: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gemini-pro'],
+            enum: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gemini-pro', 'deepseek-coder', 'deepseek-chat', 'dall-e-3', 'combined-research'],
             default: 'gpt-3.5-turbo'
         },
         temperature: {

@@ -72,8 +72,93 @@ router.post('/google', async (req, res) => {
 //NOTE - GET CURRENT USER PROFILE 
 router.get('/me', authenticate, (req, res) => {
     res.status(200).json({
+        message: 'USER PROFILE RETRIEVED SUCCESSFULLY',
         user: req.user
     });
+});
+
+//NOTE - IMPORT PASSWORD RESET SERVICE
+const passwordResetService = require('../services/passwordReset');
+
+//NOTE - FORGOT PASSWORD (POST /api/auth/forgot-password, PUBLIC)
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                error: { message: 'Email is required' }
+            });
+        }
+
+        await passwordResetService.generateResetToken(email);
+
+        res.status(200).json({
+            message: 'If an account with that email exists, a password reset link has been sent'
+        });
+
+    } catch (error) {
+        logger.error(`Forgot password route error: ${error.message}`);
+        // Always return success message for security (prevent email enumeration)
+        res.status(200).json({
+            message: 'If an account with that email exists, a password reset link has been sent'
+        });
+    }
+});
+
+//NOTE - RESET PASSWORD (POST /api/auth/reset-password, PUBLIC)
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({
+                error: { message: 'Token and new password are required' }
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                error: { message: 'Password must be at least 8 characters long' }
+            });
+        }
+
+        await passwordResetService.resetPassword(token, newPassword);
+
+        res.status(200).json({
+            message: 'Password reset successfully'
+        });
+
+    } catch (error) {
+        logger.error(`Reset password route error: ${error.message}`);
+
+        if (error.message.includes('Invalid or expired')) {
+            return res.status(400).json({
+                error: { message: error.message }
+            });
+        }
+
+        res.status(500).json({
+            error: { message: 'Failed to reset password' }
+        });
+    }
+});
+
+//NOTE - LOGOUT (POST /api/auth/logout, PRIVATE)
+router.post('/logout', authenticate, async (req, res) => {
+    try {
+        // For JWT, we just need to respond success
+        // Frontend should remove the token from storage
+        res.status(200).json({
+            message: 'Logged out successfully'
+        });
+
+    } catch (error) {
+        logger.error(`Logout route error: ${error.message}`);
+        res.status(500).json({
+            error: { message: 'Failed to logout' }
+        });
+    }
 });
 
 module.exports = router;
