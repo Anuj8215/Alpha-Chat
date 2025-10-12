@@ -12,6 +12,7 @@ const chatRoutes = require('../routes/chat');
 const aiRoutes = require('../routes/ai');
 const profileRoutes = require('../routes/profile');
 const adminRoutes = require('../routes/admin');
+const temporaryChatRoutes = require('../routes/temporaryChat');
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/temporary-chat', temporaryChatRoutes);
 
 //NOTE - BASIC ROUTE FOR HEALTH CHECK
 

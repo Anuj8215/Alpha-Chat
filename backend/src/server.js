@@ -8,6 +8,7 @@ const socketIO = require('socket.io');
 const app = require('./config/app');
 const connectDB = require('./config/database');
 const logger = require('./utils/logger');
+const { scheduleCleanup, runInitialCleanup } = require('./utils/scheduledTasks');
 
 
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,7 @@ const PORT = process.env.PORT || 3000;
 
 const server = http.createServer(app);
 
-//NOTE - INITIALIZE SOCKET.IO FO    R REAL-TIME CHATGPT-LIKE EXPERIENCE
+//NOTE - INITIALIZE SOCKET.IO FOR REAL-TIME CHATGPT-LIKE EXPERIENCE
 const io = socketIO(server, {
     cors: {
         origin: process.env.CLIENT_URL || '*',
@@ -25,6 +26,14 @@ const io = socketIO(server, {
 
 // Connect to MongoDB
 connectDB();
+
+// Initialize scheduled tasks for temporary chat cleanup
+scheduleCleanup();
+
+// Run initial cleanup on server start
+setTimeout(() => {
+    runInitialCleanup();
+}, 5000); // Wait 5 seconds after server start
 
 // Socket.IO connection handler for ChatGPT clone functionality
 io.on('connection', (socket) => {
@@ -63,6 +72,104 @@ io.on('connection', (socket) => {
                 conversationId: data.conversationId
             });
         }
+    });
+
+    // Handle temporary chat message (real-time temporary chat like ChatGPT)
+    socket.on('send-temp-message', async (data) => {
+        try {
+            const { sessionId, message } = data;
+
+            if (!sessionId || !message) {
+                socket.emit('temp-error', { error: 'Session ID and message are required' });
+                return;
+            }
+
+            // Join session room for real-time updates
+            socket.join(`temp-${sessionId}`);
+
+            // Emit typing indicator while AI is processing
+            io.to(`temp-${sessionId}`).emit('temp-ai-typing', {
+                sessionId,
+                isTyping: true
+            });
+
+            logger.info(`Temporary chat message received for session ${sessionId}: ${message.substring(0, 50)}...`);
+
+            // Import temporary chat service dynamically to avoid circular dependency
+            const temporaryChatService = require('./services/temporaryChat');
+
+            // Process the message
+            const result = await temporaryChatService.sendTemporaryMessage(sessionId, message);
+
+            // Stop typing indicator
+            io.to(`temp-${sessionId}`).emit('temp-ai-typing', {
+                sessionId,
+                isTyping: false
+            });
+
+            // Emit the AI response in real-time
+            io.to(`temp-${sessionId}`).emit('temp-message-response', {
+                sessionId: result.sessionId,
+                userMessage: message,
+                aiResponse: result.lastMessage.content,
+                timestamp: new Date().toISOString(),
+                metadata: {
+                    model: result.lastMessage.model,
+                    tokens: result.lastMessage.tokens,
+                    processingTime: result.lastMessage.processingTime
+                }
+            });
+
+        } catch (error) {
+            logger.error(`Temporary chat error: ${error.message}`);
+
+            // Stop typing indicator on error
+            if (data.sessionId) {
+                io.to(`temp-${data.sessionId}`).emit('temp-ai-typing', {
+                    sessionId: data.sessionId,
+                    isTyping: false
+                });
+            }
+
+            socket.emit('temp-error', {
+                error: error.message.includes('not found') || error.message.includes('expired')
+                    ? 'Chat session not found or expired'
+                    : 'Failed to process message',
+                sessionId: data.sessionId
+            });
+        }
+    });
+
+    // Handle joining temporary chat session
+    socket.on('join-temp-session', (sessionId) => {
+        socket.join(`temp-${sessionId}`);
+        logger.info(`Socket ${socket.id} joined temporary session ${sessionId}`);
+
+        socket.emit('temp-session-joined', {
+            sessionId,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // Handle leaving temporary chat session
+    socket.on('leave-temp-session', (sessionId) => {
+        socket.leave(`temp-${sessionId}`);
+        logger.info(`Socket ${socket.id} left temporary session ${sessionId}`);
+
+        socket.emit('temp-session-left', {
+            sessionId,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    // Handle temporary chat typing indicator
+    socket.on('temp-user-typing', (data) => {
+        const { sessionId, isTyping } = data;
+        socket.to(`temp-${sessionId}`).emit('temp-user-typing', {
+            sessionId,
+            isTyping,
+            timestamp: new Date().toISOString()
+        });
     });
 
     // Handle AI image/video generation request (Gemini integration)
