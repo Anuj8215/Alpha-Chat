@@ -9,6 +9,7 @@ const app = require('./config/app');
 const connectDB = require('./config/database');
 const logger = require('./utils/logger');
 const { scheduleCleanup, runInitialCleanup } = require('./utils/scheduledTasks');
+const { verifyTransporter } = require('./services/emailService');
 
 
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,12 @@ const io = socketIO(server, {
 
 // Connect to MongoDB
 connectDB();
+
+// Verify email transporter
+verifyTransporter().catch((error) => {
+    logger.error('Email transporter verification failed on startup:', error.message);
+    // Don't exit process, just log the error - email features might still work
+});
 
 // Initialize scheduled tasks for temporary chat cleanup
 scheduleCleanup();

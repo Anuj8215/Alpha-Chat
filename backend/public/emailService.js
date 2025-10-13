@@ -97,10 +97,9 @@ const sendPasswordResetConfirmation = async (email) => {
                         <h2 style="color: #28a745;">Password Reset Successful</h2>
                         <p>Hello,</p>
                         <p>Your Alpha-Chat password has been successfully reset.</p>
-                        <p>You can now log in to your Alpha-Chat mobile app using your new password.</p>
-                        <div style="text-align: center; margin: 30px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #28a745;">
-                            <p style="color: #28a745; font-weight: bold; margin: 0;">Password Reset Complete</p>
-                            <p style="margin: 5px 0 0 0; font-size: 14px;">Open your Alpha-Chat mobile app to log in with your new password.</p>
+                        <p>You can now log in to your account using your new password.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${process.env.CLIENT_URL}/login" style="background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Login to Your Account</a>
                         </div>
                         <p style="color: #dc3545;"><strong>Security Notice:</strong> If you didn't perform this password reset, please contact support immediately and change your password.</p>
                         <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">

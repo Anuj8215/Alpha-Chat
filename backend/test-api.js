@@ -59,6 +59,13 @@ async function testAPI() {
         }, { headers });
         console.log('✅ Chat Response:', chatResponse.data.message);
 
+        // Test 7: Test Password Reset (Forgot Password)
+        console.log('\n7. Testing Password Reset...');
+        const resetResponse = await axios.post(`${BASE_URL}/api/auth/forgot-password`, {
+            email: registerData.email
+        });
+        console.log('✅ Password Reset Request:', resetResponse.data.message);
+
         console.log('\n🎉 All tests passed! Your Alpha Chat backend is working perfectly!');
 
     } catch (error) {

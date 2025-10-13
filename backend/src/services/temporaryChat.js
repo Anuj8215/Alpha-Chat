@@ -7,9 +7,12 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 
 // Initialize AI services
-const openaiChat = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+let openaiChat = null;
+if (process.env.OPENAI_API_KEY) {
+    openaiChat = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+    });
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
@@ -150,6 +153,10 @@ const generateAIResponse = async (model, conversationHistory, settings) => {
 //NOTE - OPENAI RESPONSE GENERATION
 const generateOpenAIResponse = async (model, messages, settings) => {
     try {
+        if (!openaiChat) {
+            throw new Error('OpenAI API key not configured');
+        }
+
         const completion = await openaiChat.chat.completions.create({
             model: model,
             messages: messages,

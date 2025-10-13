@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 
 //NOTE - CLEANUP EXPIRED TEMPORARY CHATS EVERY HOUR
 const scheduleCleanup = () => {
-    const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
+    const CLEANUP_INTERVAL = 60 * 60 * 1000;
 
     setInterval(async () => {
         try {

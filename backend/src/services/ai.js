@@ -9,9 +9,12 @@ const ImageLibrary = require('../models/imageLibrary');
 const logger = require('../utils/logger');
 
 // Initialize OpenAI (for Chat)
-const openaiChat = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY // Your chat API key
-});
+let openaiChat = null;
+if (process.env.OPENAI_API_KEY) {
+    openaiChat = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY // Your chat API key
+    });
+}
 
 // Initialize Gemini (for Image/Video)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -55,6 +58,10 @@ const createConversation = async (userId, aiMode = 'chat', title = null) => {
 
 const getChatResponse = async (userId, conversationId, message, model = 'gpt-3.5-turbo') => {
     try {
+        if (!openaiChat) {
+            throw new Error('OpenAI API key not configured');
+        }
+
         const startTime = Date.now();
 
         await checkUserLimits(userId, 'chat');
@@ -157,6 +164,10 @@ const getCodeResponse = async (userId, conversationId, message, codeLanguage = '
 
 const getResearchResponse = async (userId, conversationId, query) => {
     try {
+        if (!openaiChat) {
+            throw new Error('OpenAI API key not configured');
+        }
+
         const startTime = Date.now();
 
         await checkUserLimits(userId, 'research');
@@ -243,6 +254,10 @@ const getResearchResponse = async (userId, conversationId, query) => {
 
 const getDocumentResponse = async (userId, conversationId, prompt, documentType = 'general') => {
     try {
+        if (!openaiChat) {
+            throw new Error('OpenAI API key not configured');
+        }
+
         const startTime = Date.now();
 
         await checkUserLimits(userId, 'document');
@@ -290,6 +305,10 @@ const getDocumentResponse = async (userId, conversationId, prompt, documentType 
 
 const generateImage = async (userId, conversationId, prompt) => {
     try {
+        if (!openaiChat) {
+            throw new Error('OpenAI API key not configured');
+        }
+
         const startTime = Date.now();
 
         await checkUserLimits(userId, 'image');

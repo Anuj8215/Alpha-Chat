@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 const logger = require('../utils/logger');
 
 
@@ -21,6 +22,9 @@ app.use(helmet());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+//NOTE - SERVE STATIC FILES FROM PUBLIC DIRECTORY
+app.use(express.static(path.join(__dirname, '../..', 'public')));
+
 //NOTE - CORS CONFIGURATION
 
 app.use(cors());
@@ -38,6 +42,23 @@ const apiLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again later.'
 })
 app.use('/api/', apiLimiter);
+
+//NOTE - HTML ROUTES FOR PASSWORD RESET PAGES
+app.get('/forgot-password', (req, res) => {
+    res.sendFile(path.join(__dirname, '../..', 'public', 'forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+    res.sendFile(path.join(__dirname, '../..', 'public', 'reset-password.html'));
+});
+
+app.get('/reset-success', (req, res) => {
+    res.sendFile(path.join(__dirname, '../..', 'public', 'reset-success.html'));
+});
+
+app.get('/reset-error', (req, res) => {
+    res.sendFile(path.join(__dirname, '../..', 'public', 'reset-error.html'));
+});
 
 //NOTE - API ROUTES
 app.use('/api/auth', authRoutes);

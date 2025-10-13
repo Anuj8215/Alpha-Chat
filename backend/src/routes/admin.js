@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
+const { authenticate, isAdmin } = require('../middleware/authMiddleware');
 const { auditUserAction, auditSystemAction, auditConversationAction } = require('../middleware/auditMiddleware');
 const adminService = require('../services/admin');
 const User = require('../models/users');
@@ -8,7 +8,7 @@ const Conversation = require('../models/conversations');
 const Message = require('../models/message');
 
 // Apply admin middleware to all routes
-router.use(authenticateToken, isAdmin);
+router.use('/', authenticate, isAdmin);
 
 //NOTE - DASHBOARD ANALYTICS
 router.get('/dashboard', async (req, res) => {

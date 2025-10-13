@@ -109,7 +109,7 @@ router.post('/forgot-password', async (req, res) => {
 //NOTE - RESET PASSWORD (POST /api/auth/reset-password, PUBLIC)
 router.post('/reset-password', async (req, res) => {
     try {
-        const { token, newPassword } = req.body;
+        const { token, newPassword, confirmPassword } = req.body;
 
         if (!token || !newPassword) {
             return res.status(400).json({
@@ -117,9 +117,26 @@ router.post('/reset-password', async (req, res) => {
             });
         }
 
+        if (confirmPassword && newPassword !== confirmPassword) {
+            return res.status(400).json({
+                error: { message: 'Passwords do not match' }
+            });
+        }
+
         if (newPassword.length < 8) {
             return res.status(400).json({
                 error: { message: 'Password must be at least 8 characters long' }
+            });
+        }
+
+        // Additional password strength validation
+        const hasUpperCase = /[A-Z]/.test(newPassword);
+        const hasLowerCase = /[a-z]/.test(newPassword);
+        const hasNumbers = /\d/.test(newPassword);
+
+        if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+            return res.status(400).json({
+                error: { message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' }
             });
         }
 
