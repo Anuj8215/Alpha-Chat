@@ -164,8 +164,7 @@ router.post('/reset-password', async (req, res) => {
 //NOTE - LOGOUT (POST /api/auth/logout, PRIVATE)
 router.post('/logout', authenticate, async (req, res) => {
     try {
-        // For JWT, we just need to respond success
-        // Frontend should remove the token from storage
+
         res.status(200).json({
             message: 'Logged out successfully'
         });

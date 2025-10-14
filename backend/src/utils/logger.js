@@ -12,7 +12,7 @@ const logFormat = winston.format.combine(
 const logger = winston.createLogger({
     level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     format: logFormat,
-    defaultMeta: { service: 'alpha-chat-backend' },
+    defaultMeta: { service: 'thynkchat-backend' },
     transports: [
         new winston.transports.Console({
             format: winston.format.combine(
